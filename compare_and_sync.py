@@ -30,8 +30,8 @@ use_hash = st.sidebar.checkbox("🔍 Use SHA256 comparison (more precise but slo
 
 # Convert folder paths entered in text input into Path objects
 def get_folder_path(path):
-    # Remove leading/trailing spaces and ensure the path is resolved correctly
-    path = path.strip()
+    # Remove leading/trailing spaces and extra quotes
+    path = path.strip().strip("'").strip('"')
     if path:
         resolved_path = Path(path).resolve()
         st.write(f"🔍 Resolving path: {resolved_path}")  # Debugging line
