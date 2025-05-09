@@ -21,29 +21,24 @@ with st.expander("📦 Click to view compatibility table"):
     | **Cloud Drives**     | ⚠️ Partial | Dropbox/OneDrive may delay sync |
     """)
 
-# Drag and drop file upload
-st.sidebar.markdown("### 📁 Drag and Drop Files to Compare")
-folder1_files = st.sidebar.file_uploader("Drag files from Folder 1", type="*.*", accept_multiple_files=True)
-folder2_files = st.sidebar.file_uploader("Drag files from Folder 2", type="*.*", accept_multiple_files=True)
+# Manual Folder Path Input via Text Box
+st.sidebar.markdown("### 📁 Folder Paths")
+folder1_path = st.sidebar.text_input("🔧 Folder 1 Path", placeholder="Enter path for Folder 1")
+folder2_path = st.sidebar.text_input("🔧 Folder 2 Path", placeholder="Enter path for Folder 2")
+
 use_hash = st.sidebar.checkbox("🔍 Use SHA256 comparison (more precise but slower)", value=False)
 
-def get_folder_from_file(files):
-    """Extract folder path from the uploaded files."""
-    if files:
-        # Extract folder path based on the relative file path
-        file_paths = [Path(f.name) for f in files]
-        common_parent = os.path.commonpath([str(f) for f in file_paths])
-        return Path(common_parent)
-    return None
+# Convert folder paths entered in text input into Path objects
+def get_folder_path(path):
+    return Path(path).resolve() if path else None
 
-def list_files_from_uploaded(files, folder):
-    """List files in the folder based on the uploaded files."""
-    if folder:
+def list_files_from_folder(folder):
+    """List files in the folder based on the provided path."""
+    if folder and folder.exists():
         files_dict = {}
-        for file in files:
-            file_path = Path(file.name)
-            relative_path = file_path.relative_to(folder)
-            files_dict[str(relative_path)] = file
+        for file in folder.rglob('*'):
+            if file.is_file():
+                files_dict[str(file.relative_to(folder))] = file
         return files_dict
     return {}
 
@@ -59,9 +54,9 @@ def get_file_hash(file):
         return None
 
 def get_actions(folder1, folder2, use_hash=False):
-    # List files based on uploaded files and inferred folder paths
-    files1 = list_files_from_uploaded(folder1_files, folder1)
-    files2 = list_files_from_uploaded(folder2_files, folder2)
+    # List files based on provided folder paths
+    files1 = list_files_from_folder(folder1)
+    files2 = list_files_from_folder(folder2)
     all_keys = set(files1.keys()).union(files2.keys())
 
     actions = []
@@ -128,25 +123,20 @@ def copy_with_backup(src, dst, folder1, folder2):
         st.error(f"❌ Failed to copy {src} to {dst}: {e}")
 
 # Main execution
-if folder1_files and folder2_files:
-    folder1 = get_folder_from_file(folder1_files)
-    folder2 = get_folder_from_file(folder2_files)
+if folder1_path and folder2_path:
+    folder1 = get_folder_path(folder1_path)
+    folder2 = get_folder_path(folder2_path)
 
-    # Display inferred folder paths in text input fields (user-editable)
-    folder1_path = st.text_input("🔧 Folder 1 Path", value=str(folder1), key="folder1_path")
-    folder2_path = st.text_input("🔧 Folder 2 Path", value=str(folder2), key="folder2_path")
-
-    # Show user editable folder paths
-    st.write(f"📂 Folder 1 Path: `{folder1_path}`")
-    st.write(f"📂 Folder 2 Path: `{folder2_path}`")
-
-    # Proceed with actions after folder path confirmation
-    actions = get_actions(Path(folder1_path), Path(folder2_path), use_hash)
-    if actions:
-        show_summary(actions)
-        if st.button("✅ Confirm and Start Sync"):
-            perform_sync(actions, Path(folder1_path), Path(folder2_path))
+    if folder1 and folder2 and folder1.exists() and folder2.exists():
+        # Proceed with actions after folder path confirmation
+        actions = get_actions(folder1, folder2, use_hash)
+        if actions:
+            show_summary(actions)
+            if st.button("✅ Confirm and Start Sync"):
+                perform_sync(actions, folder1, folder2)
+        else:
+            st.info("✅ Folders are already in sync.")
     else:
-        st.info("✅ Folders are already in sync.")
+        st.error("❌ One or both folder paths are invalid. Please check the paths and try again.")
 else:
-    st.info("👈 Please drag and drop files from both folders to begin.")
+    st.info("👈 Please enter valid folder paths to begin.")
