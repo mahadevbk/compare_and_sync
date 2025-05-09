@@ -33,7 +33,12 @@ def get_folder_path(path):
     # Remove leading/trailing spaces and ensure the path is resolved correctly
     path = path.strip()
     if path:
-        return Path(path).resolve() if Path(path).exists() else None
+        resolved_path = Path(path).resolve()
+        st.write(f"🔍 Resolving path: {resolved_path}")  # Debugging line
+        if resolved_path.exists() and resolved_path.is_dir():
+            return resolved_path
+        else:
+            st.write(f"❌ Path does not exist or is not a directory: {resolved_path}")  # Debugging line
     return None
 
 def list_files_from_folder(folder):
@@ -131,7 +136,7 @@ if folder1_path and folder2_path:
     folder1 = get_folder_path(folder1_path)
     folder2 = get_folder_path(folder2_path)
 
-    if folder1 and folder2 and folder1.exists() and folder2.exists():
+    if folder1 and folder2:
         # Proceed with actions after folder path confirmation
         actions = get_actions(folder1, folder2, use_hash)
         if actions:
