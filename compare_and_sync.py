@@ -132,20 +132,20 @@ if folder1_files and folder2_files:
     folder1 = get_folder_from_file(folder1_files)
     folder2 = get_folder_from_file(folder2_files)
 
-    # Display inferred folder paths in text input fields
-    folder1 = st.text_input("🔧 Folder 1 Path", value=str(folder1), key="folder1_path")
-    folder2 = st.text_input("🔧 Folder 2 Path", value=str(folder2), key="folder2_path")
+    # Display inferred folder paths in text input fields (user-editable)
+    folder1_path = st.text_input("🔧 Folder 1 Path", value=str(folder1), key="folder1_path")
+    folder2_path = st.text_input("🔧 Folder 2 Path", value=str(folder2), key="folder2_path")
 
     # Show user editable folder paths
-    st.write(f"📂 Folder 1 Path: `{folder1}`")
-    st.write(f"📂 Folder 2 Path: `{folder2}`")
+    st.write(f"📂 Folder 1 Path: `{folder1_path}`")
+    st.write(f"📂 Folder 2 Path: `{folder2_path}`")
 
     # Proceed with actions after folder path confirmation
-    actions = get_actions(Path(folder1), Path(folder2), use_hash)
+    actions = get_actions(Path(folder1_path), Path(folder2_path), use_hash)
     if actions:
         show_summary(actions)
         if st.button("✅ Confirm and Start Sync"):
-            perform_sync(actions, Path(folder1), Path(folder2))
+            perform_sync(actions, Path(folder1_path), Path(folder2_path))
     else:
         st.info("✅ Folders are already in sync.")
 else:
