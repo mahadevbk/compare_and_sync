@@ -1,7 +1,8 @@
 import streamlit as st
 import os
-from pathlib import Path
+import zipfile
 import shutil
+from pathlib import Path
 import hashlib
 from datetime import datetime
 
@@ -21,39 +22,47 @@ with st.expander("📦 Click to view compatibility table"):
     | **Cloud Drives**     | ⚠️ Partial | Dropbox/OneDrive may delay sync |
     """)
 
-# File upload for folder paths
-st.sidebar.markdown("### 📁 Upload Files to Compare")
-file1 = st.sidebar.file_uploader("Upload a file from Folder 1", type="*")
-file2 = st.sidebar.file_uploader("Upload a file from Folder 2", type="*")
+# Drag and drop file upload
+st.sidebar.markdown("### 📁 Drag and Drop Files to Compare")
+folder1_files = st.sidebar.file_uploader("Drag files from Folder 1", type="*.*", accept_multiple_files=True)
+folder2_files = st.sidebar.file_uploader("Drag files from Folder 2", type="*.*", accept_multiple_files=True)
 use_hash = st.sidebar.checkbox("🔍 Use SHA256 comparison (more precise but slower)", value=False)
 
-def get_folder_from_file(file):
-    """Extract folder path from the uploaded file."""
-    if file:
-        file_path = Path(file.name)
-        return file_path.parent  # Extract the folder that the file is in
+def get_folder_from_file(files):
+    """Extract folder path from the uploaded files."""
+    if files:
+        # Extract folder path based on the relative file path
+        file_paths = [Path(f.name) for f in files]
+        common_parent = os.path.commonpath([str(f) for f in file_paths])
+        return Path(common_parent)
     return None
 
-def list_files_from_folder(folder):
-    """List files in the folder (simulated by extracting folder from file)."""
+def list_files_from_uploaded(files, folder):
+    """List files in the folder based on the uploaded files."""
     if folder:
-        return {str(f.relative_to(folder)): f for f in Path(folder).rglob("*") if f.is_file()}
+        files_dict = {}
+        for file in files:
+            file_path = Path(file.name)
+            relative_path = file_path.relative_to(folder)
+            files_dict[str(relative_path)] = file
+        return files_dict
     return {}
 
-def get_file_hash(file_path):
+def get_file_hash(file):
     try:
         hash_sha256 = hashlib.sha256()
-        with open(file_path, "rb") as f:
+        with open(file, "rb") as f:
             for chunk in iter(lambda: f.read(8192), b""):
                 hash_sha256.update(chunk)
         return hash_sha256.hexdigest()
     except Exception as e:
-        st.warning(f"⚠️ Hashing failed for {file_path}: {e}")
+        st.warning(f"⚠️ Hashing failed for {file}: {e}")
         return None
 
 def get_actions(folder1, folder2, use_hash=False):
-    files1 = list_files_from_folder(folder1)
-    files2 = list_files_from_folder(folder2)
+    # List files based on uploaded files and inferred folder paths
+    files1 = list_files_from_uploaded(folder1_files, folder1)
+    files2 = list_files_from_uploaded(folder2_files, folder2)
     all_keys = set(files1.keys()).union(files2.keys())
 
     actions = []
@@ -120,9 +129,9 @@ def copy_with_backup(src, dst, folder1, folder2):
         st.error(f"❌ Failed to copy {src} to {dst}: {e}")
 
 # Main execution
-if file1 and file2:
-    folder1 = get_folder_from_file(file1)
-    folder2 = get_folder_from_file(file2)
+if folder1_files and folder2_files:
+    folder1 = get_folder_from_file(folder1_files)
+    folder2 = get_folder_from_file(folder2_files)
 
     st.write(f"📂 Folder 1: `{folder1}`")
     st.write(f"📂 Folder 2: `{folder2}`")
@@ -135,4 +144,4 @@ if file1 and file2:
     else:
         st.info("✅ Folders are already in sync.")
 else:
-    st.info("👈 Please upload files from both folders to begin.")
+    st.info("👈 Please drag and drop files from both folders to begin.")
