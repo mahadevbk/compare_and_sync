@@ -30,7 +30,11 @@ use_hash = st.sidebar.checkbox("🔍 Use SHA256 comparison (more precise but slo
 
 # Convert folder paths entered in text input into Path objects
 def get_folder_path(path):
-    return Path(path).resolve() if path else None
+    # Remove leading/trailing spaces and ensure the path is resolved correctly
+    path = path.strip()
+    if path:
+        return Path(path).resolve() if Path(path).exists() else None
+    return None
 
 def list_files_from_folder(folder):
     """List files in the folder based on the provided path."""
@@ -137,6 +141,6 @@ if folder1_path and folder2_path:
         else:
             st.info("✅ Folders are already in sync.")
     else:
-        st.error("❌ One or both folder paths are invalid. Please check the paths and try again.")
+        st.error(f"❌ One or both folder paths are invalid. Please check the paths: {folder1_path}, {folder2_path}")
 else:
     st.info("👈 Please enter valid folder paths to begin.")
