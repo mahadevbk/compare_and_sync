@@ -4,15 +4,11 @@ import shutil
 import hashlib
 from pathlib import Path
 from datetime import datetime
-from tkinter import Tk, filedialog
 
 st.set_page_config(page_title="Dev's Folder Sync Tool", layout="wide")
 st.title("🛠️ Dev's Robust Folder Comparison and Sync Tool")
 
-# Hide Streamlit warnings about Tkinter
-st.markdown("<style>footer, .st-emotion-cache-1y4p8pa {visibility: hidden;}</style>", unsafe_allow_html=True)
-
-# Show compatibility info
+# Compatibility info
 with st.expander("📦 Click to view compatibility table"):
     st.markdown("""
     | OS / File System     | Supported? | Notes |
@@ -25,36 +21,10 @@ with st.expander("📦 Click to view compatibility table"):
     | **Cloud Drives**     | ⚠️ Partial | Dropbox/OneDrive may delay sync |
     """)
 
-def pick_folder(button_label):
-    if st.button(button_label):
-        root = Tk()
-        root.withdraw()
-        folder_selected = filedialog.askdirectory()
-        root.destroy()
-        return folder_selected
-    return None
-
-# Folder selection
-st.sidebar.markdown("### 📁 Folder Selection")
-col1, col2 = st.sidebar.columns(2)
-with col1:
-    f1_button = pick_folder("📂 Select Folder 1")
-with col2:
-    f2_button = pick_folder("📂 Select Folder 2")
-
-if 'folder1' not in st.session_state:
-    st.session_state.folder1 = f1_button
-if 'folder2' not in st.session_state:
-    st.session_state.folder2 = f2_button
-
-if f1_button:
-    st.session_state.folder1 = f1_button
-if f2_button:
-    st.session_state.folder2 = f2_button
-
-folder1 = st.session_state.folder1
-folder2 = st.session_state.folder2
-
+# Folder input
+st.sidebar.markdown("### 📁 Enter Folder Paths (absolute paths)")
+folder1 = st.sidebar.text_input("📁 Path to Folder 1")
+folder2 = st.sidebar.text_input("📁 Path to Folder 2")
 use_hash = st.sidebar.checkbox("🔍 Use SHA256 comparison (more precise but slower)", value=False)
 
 def list_files(folder):
@@ -146,9 +116,9 @@ def perform_sync(actions, folder1, folder2):
         progress.progress((i + 1) / total)
     st.success("✅ Sync complete!")
 
-# Main logic
+# Main execution
 if folder1 and folder2 and Path(folder1).is_dir() and Path(folder2).is_dir():
-    st.write(f"🔍 Comparing folders:\n- `{folder1}`\n- `{folder2}`")
+    st.write(f"🔍 Comparing:\n- `{folder1}`\n- `{folder2}`")
     actions = get_actions(folder1, folder2, use_hash)
     if actions:
         show_summary(actions)
@@ -157,4 +127,4 @@ if folder1 and folder2 and Path(folder1).is_dir() and Path(folder2).is_dir():
     else:
         st.info("✅ Folders are already in sync.")
 else:
-    st.info("👈 Please select two valid folders to begin.")
+    st.info("👈 Please provide valid absolute folder paths.")
