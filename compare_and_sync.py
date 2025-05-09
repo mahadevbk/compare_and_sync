@@ -1,8 +1,8 @@
 import streamlit as st
 import os
+from pathlib import Path
 import shutil
 import hashlib
-from pathlib import Path
 from datetime import datetime
 
 st.set_page_config(page_title="Dev's Folder Sync Tool", layout="wide")
@@ -21,14 +21,24 @@ with st.expander("📦 Click to view compatibility table"):
     | **Cloud Drives**     | ⚠️ Partial | Dropbox/OneDrive may delay sync |
     """)
 
-# Folder input
-st.sidebar.markdown("### 📁 Enter Folder Paths (absolute paths)")
-folder1 = st.sidebar.text_input("📁 Path to Folder 1")
-folder2 = st.sidebar.text_input("📁 Path to Folder 2")
+# File upload for folder paths
+st.sidebar.markdown("### 📁 Upload Files to Compare")
+file1 = st.sidebar.file_uploader("Upload a file from Folder 1", type="*")
+file2 = st.sidebar.file_uploader("Upload a file from Folder 2", type="*")
 use_hash = st.sidebar.checkbox("🔍 Use SHA256 comparison (more precise but slower)", value=False)
 
-def list_files(folder):
-    return {str(f.relative_to(folder)): f for f in Path(folder).rglob("*") if f.is_file()}
+def get_folder_from_file(file):
+    """Extract folder path from the uploaded file."""
+    if file:
+        file_path = Path(file.name)
+        return file_path.parent  # Extract the folder that the file is in
+    return None
+
+def list_files_from_folder(folder):
+    """List files in the folder (simulated by extracting folder from file)."""
+    if folder:
+        return {str(f.relative_to(folder)): f for f in Path(folder).rglob("*") if f.is_file()}
+    return {}
 
 def get_file_hash(file_path):
     try:
@@ -41,11 +51,9 @@ def get_file_hash(file_path):
         st.warning(f"⚠️ Hashing failed for {file_path}: {e}")
         return None
 
-def get_actions(f1, f2, use_hash=False):
-    f1 = Path(f1)
-    f2 = Path(f2)
-    files1 = list_files(f1)
-    files2 = list_files(f2)
+def get_actions(folder1, folder2, use_hash=False):
+    files1 = list_files_from_folder(folder1)
+    files2 = list_files_from_folder(folder2)
     all_keys = set(files1.keys()).union(files2.keys())
 
     actions = []
@@ -55,29 +63,24 @@ def get_actions(f1, f2, use_hash=False):
         f2_file = files2.get(rel_path)
 
         if f1_file and not f2_file:
-            actions.append(("copy", f1_file, f2 / rel_path))
+            actions.append(("copy", f1_file, folder2 / rel_path))
         elif f2_file and not f1_file:
-            actions.append(("copy", f2_file, f1 / rel_path))
+            actions.append(("copy", f2_file, folder1 / rel_path))
         elif f1_file and f2_file:
             if use_hash:
                 hash1 = get_file_hash(f1_file)
                 hash2 = get_file_hash(f2_file)
                 if hash1 and hash2 and hash1 != hash2:
-                    actions.append(("update", f1_file, f2 / rel_path))
-                    actions.append(("update", f2_file, f1 / rel_path))
+                    actions.append(("update", f1_file, folder2 / rel_path))
+                    actions.append(("update", f2_file, folder1 / rel_path))
             else:
                 f1_mtime = f1_file.stat().st_mtime
                 f2_mtime = f2_file.stat().st_mtime
                 if f1_mtime > f2_mtime:
-                    actions.append(("update", f1_file, f2 / rel_path))
+                    actions.append(("update", f1_file, folder2 / rel_path))
                 elif f2_mtime > f1_mtime:
-                    actions.append(("update", f2_file, f1 / rel_path))
+                    actions.append(("update", f2_file, folder1 / rel_path))
     return actions
-
-def log_action(folder, action, src, dst):
-    log_path = Path(folder) / "sync_log.txt"
-    with open(log_path, "a") as f:
-        f.write(f"{datetime.now().isoformat()} | {action.upper()} | {src} -> {dst}\n")
 
 def show_summary(actions):
     st.subheader("📝 Planned Actions")
@@ -86,6 +89,14 @@ def show_summary(actions):
             st.write(f"📁 **Copy** `{src}` → `{dst}`")
         elif action == "update":
             st.write(f"🔄 **Update** `{dst}` ← `{src}` (with backup)")
+
+def perform_sync(actions, folder1, folder2):
+    progress = st.progress(0)
+    total = len(actions)
+    for i, (action, src, dst) in enumerate(actions):
+        copy_with_backup(src, dst, folder1, folder2)
+        progress.progress((i + 1) / total)
+    st.success("✅ Sync complete!")
 
 def copy_with_backup(src, dst, folder1, folder2):
     try:
@@ -108,17 +119,14 @@ def copy_with_backup(src, dst, folder1, folder2):
     except Exception as e:
         st.error(f"❌ Failed to copy {src} to {dst}: {e}")
 
-def perform_sync(actions, folder1, folder2):
-    progress = st.progress(0)
-    total = len(actions)
-    for i, (action, src, dst) in enumerate(actions):
-        copy_with_backup(src, dst, folder1, folder2)
-        progress.progress((i + 1) / total)
-    st.success("✅ Sync complete!")
-
 # Main execution
-if folder1 and folder2 and Path(folder1).is_dir() and Path(folder2).is_dir():
-    st.write(f"🔍 Comparing:\n- `{folder1}`\n- `{folder2}`")
+if file1 and file2:
+    folder1 = get_folder_from_file(file1)
+    folder2 = get_folder_from_file(file2)
+
+    st.write(f"📂 Folder 1: `{folder1}`")
+    st.write(f"📂 Folder 2: `{folder2}`")
+
     actions = get_actions(folder1, folder2, use_hash)
     if actions:
         show_summary(actions)
@@ -127,4 +135,4 @@ if folder1 and folder2 and Path(folder1).is_dir() and Path(folder2).is_dir():
     else:
         st.info("✅ Folders are already in sync.")
 else:
-    st.info("👈 Please provide valid absolute folder paths.")
+    st.info("👈 Please upload files from both folders to begin.")
